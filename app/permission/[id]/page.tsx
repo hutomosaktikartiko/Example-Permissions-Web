@@ -3,6 +3,17 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 
+interface ContactProperty {
+  name: string[]
+  tel: string[]
+}
+
+interface ContactsAPI extends Navigator {
+  contacts: {
+    select: (properties: string[]) => Promise<ContactProperty[]>
+  }
+}
+
 export default function PermissionDetail() {
   const { id } = useParams()
   const [status, setStatus] = useState<string>('')
@@ -19,12 +30,14 @@ export default function PermissionDetail() {
           break
 
         case 'file':
-          const fileHandle = await window.showOpenFilePicker()
-          setStatus('Akses file diizinkan!')
+          // Tambahkan handling file yang dipilih
+          const [fileHandle] = await window.showOpenFilePicker()
+          const file = await fileHandle.getFile()
+          setStatus(`File dipilih: ${file.name}`)
           break
 
         case 'location':
-          const position = await new Promise((resolve, reject) => {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject)
           })
           setStatus(`Lokasi: ${position.coords.latitude}, ${position.coords.longitude}`)
@@ -33,7 +46,7 @@ export default function PermissionDetail() {
         case 'contacts':
           // Contacts API masih experimental
           if ('contacts' in navigator) {
-            const contacts = await (navigator as any).contacts.select(['name', 'tel'])
+            const contacts = await (navigator as ContactsAPI).contacts.select(['name', 'tel'])
             setStatus(`${contacts.length} kontak dipilih`)
           } else {
             throw new Error('Contacts API tidak didukung di browser ini')
@@ -41,8 +54,9 @@ export default function PermissionDetail() {
           break
       }
       setError('')
-    } catch (err) {
-      setError(`Error: ${err.message}`)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan'
+      setError(`Error: ${errorMessage}`)
       setStatus('')
     }
   }
